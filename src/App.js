@@ -1060,10 +1060,30 @@ const DeviceDashboard = () => {
                             )}
                           </td>
                         </tr>
-                      );
+                                              );
                     })}
                   </tbody>
                 </table>
+              </div>
+              
+              <div className="flex items-center justify-center gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  className={`p-2 rounded ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-200 dark:hover:bg-gray-700'} ${textPrimary}`}
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <span className={`text-sm ${textSecondary}`}>
+                  Page {currentPage} of {totalPages} ({filteredDevices.length} devices)
+                </span>
+                <button
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                  className={`p-2 rounded ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-200 dark:hover:bg-gray-700'} ${textPrimary}`}
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
               </div>
             </div>
           </>

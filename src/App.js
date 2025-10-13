@@ -1,12 +1,13 @@
 import React, { useState, useMemo } from 'react';
-import { Upload, AlertTriangle, CheckCircle, XCircle, Shield, Users, HardDrive, Moon, Sun, ChevronLeft, ChevronRight, Info } from 'lucide-react';
+import { Upload, AlertTriangle, CheckCircle, XCircle, Shield, Users, HardDrive, Moon, Sun, ChevronLeft, ChevronRight, Info, Search, Eye, EyeOff } from 'lucide-react';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import * as Papa from 'papaparse';
 
 const DeviceDashboard = () => {
   const [darkMode, setDarkMode] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [showInfo, setShowInfo] = useState({});
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showColumnInfo, setShowColumnInfo] = useState(false);
   const devicesPerPage = 50;
 
   const [files, setFiles] = useState({
@@ -402,10 +403,16 @@ const DeviceDashboard = () => {
 
   const allFilesUploaded = files.crowdstrike && files.freshdesk && files.azure && files.intune;
 
-  const totalPages = analytics ? Math.ceil(analytics.devices.length / devicesPerPage) : 0;
+  const filteredDevices = analytics ? analytics.devices.filter(device => 
+    device.hostname.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (device.user && device.user.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (device.department && device.department.toLowerCase().includes(searchQuery.toLowerCase()))
+  ) : [];
+
+  const totalPages = Math.ceil(filteredDevices.length / devicesPerPage);
   const startIndex = (currentPage - 1) * devicesPerPage;
   const endIndex = startIndex + devicesPerPage;
-  const currentDevices = analytics ? analytics.devices.slice(startIndex, endIndex) : [];
+  const currentDevices = filteredDevices.slice(startIndex, endIndex);
 
   const bgClass = darkMode ? 'bg-gray-900' : 'bg-gray-50';
   const cardBg = darkMode ? 'bg-gray-800' : 'bg-white';
@@ -414,7 +421,7 @@ const DeviceDashboard = () => {
   const borderColor = darkMode ? 'border-gray-700' : 'border-gray-200';
   const hoverBg = darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50';
 
-  const InfoTooltip = ({ title, description }) => {
+  const InfoTooltip = ({ title, description, source }) => {
     const [show, setShow] = useState(false);
     
     return (
@@ -429,7 +436,8 @@ const DeviceDashboard = () => {
         {show && (
           <div className={`absolute z-50 ${cardBg} ${textPrimary} p-3 rounded-lg shadow-xl border ${borderColor} w-64 bottom-full mb-2 left-1/2 transform -translate-x-1/2`}>
             <p className="font-semibold text-sm mb-1">{title}</p>
-            <p className="text-xs ${textSecondary}">{description}</p>
+            <p className={`text-xs ${textSecondary} mb-2`}>{description}</p>
+            {source && <p className={`text-xs ${textSecondary} italic border-t ${borderColor} pt-2`}>Source: {source}</p>}
           </div>
         )}
       </div>
@@ -443,12 +451,15 @@ const DeviceDashboard = () => {
           <div className="flex items-center gap-4">
             <div className="relative">
               <img 
-                src="assets/voalogo_stck_cmyk_3c_1.png" 
+                src="https://www.voa.org/themes/custom/voa/logo.svg"
                 alt="Volunteers of America Logo" 
                 className="h-16 w-auto"
                 style={{
                   filter: 'drop-shadow(0 0 10px rgba(0, 102, 178, 0.6)) drop-shadow(0 0 20px rgba(200, 16, 46, 0.4))',
                   animation: 'pulse 2s ease-in-out infinite'
+                }}
+                onError={(e) => {
+                  e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100"%3E%3Ctext x="10" y="50" font-family="Arial" font-size="20" fill="%230066b2"%3EVOA%3C/text%3E%3C/svg%3E';
                 }}
               />
             </div>
@@ -472,6 +483,7 @@ const DeviceDashboard = () => {
             <InfoTooltip 
               title="CSV File Upload" 
               description="Upload all four CSV files from Crowdstrike, Freshdesk, Azure AD, and Intune to generate comprehensive device analytics and insights."
+              source="User uploaded CSV files"
             />
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -482,9 +494,11 @@ const DeviceDashboard = () => {
                     <Upload className={`w-8 h-8 ${textSecondary} mb-2`} />
                     <span className={`text-sm font-medium ${textPrimary} capitalize mb-1`}>{fileType}</span>
                     {files[fileType] ? (
-                      <div className="text-center">
+                      <div className="text-center w-full">
                         <CheckCircle className="w-5 h-5 text-green-500 mx-auto mb-1" />
-                        <span className={`text-xs ${textSecondary} block truncate max-w-full`}>{files[fileType]}</span>
+                        <span className={`text-xs ${textSecondary} block truncate px-2 max-w-full overflow-hidden text-ellipsis`} title={files[fileType]}>
+                          {files[fileType]}
+                        </span>
                         {lastUpdated[fileType] && (
                           <span className={`text-xs ${textSecondary} block mt-1`}>
                             {formatDate(lastUpdated[fileType])}
@@ -529,6 +543,7 @@ const DeviceDashboard = () => {
                       <InfoTooltip 
                         title="Total Devices" 
                         description="The total number of unique devices detected across all platforms (Crowdstrike, Azure AD, Intune, and Freshdesk)."
+                        source="All platforms combined"
                       />
                     </p>
                     <p className={`text-3xl font-bold ${textPrimary}`}>{analytics.totalDevices}</p>
@@ -545,6 +560,7 @@ const DeviceDashboard = () => {
                       <InfoTooltip 
                         title="Unprotected Devices" 
                         description="Devices that exist in Azure AD or Intune but are missing Crowdstrike endpoint protection. These devices are vulnerable to threats."
+                        source="Crowdstrike (absence check)"
                       />
                     </p>
                     <p className="text-3xl font-bold text-red-600">{analytics.unprotectedDevices}</p>
@@ -562,6 +578,7 @@ const DeviceDashboard = () => {
                       <InfoTooltip 
                         title="Non-Compliant Devices" 
                         description="Devices that fail compliance policies in Azure AD or Intune. These may be missing updates, required configurations, or security policies."
+                        source="Azure AD & Intune compliance status"
                       />
                     </p>
                     <p className="text-3xl font-bold text-orange-600">{analytics.nonCompliantDevices}</p>
@@ -579,6 +596,7 @@ const DeviceDashboard = () => {
                       <InfoTooltip 
                         title="High Risk Devices" 
                         description="Devices with a risk score of 50 or higher. Risk is calculated based on missing protection, disabled detections, non-compliance, lack of encryption, and stale activity."
+                        source="Calculated from all platforms"
                       />
                     </p>
                     <p className="text-3xl font-bold text-red-600">{analytics.highRiskDevices}</p>
@@ -596,6 +614,7 @@ const DeviceDashboard = () => {
                   <InfoTooltip 
                     title="Stale Devices (30+ days)" 
                     description="Devices that haven't been seen or checked in for more than 30 days. May be offline, decommissioned, or lost."
+                    source="Crowdstrike Last Seen, Azure Last Sign-in, Intune Last Check-in"
                   />
                 </p>
                 <p className="text-2xl font-bold text-orange-600">{analytics.staleDevices30}</p>
@@ -606,6 +625,7 @@ const DeviceDashboard = () => {
                   <InfoTooltip 
                     title="Stale Devices (90+ days)" 
                     description="Devices with no activity for 90+ days. Critical concern - likely abandoned or lost devices that should be investigated immediately."
+                    source="Crowdstrike Last Seen, Azure Last Sign-in, Intune Last Check-in"
                   />
                 </p>
                 <p className="text-2xl font-bold text-red-600">{analytics.staleDevices90}</p>
@@ -616,6 +636,7 @@ const DeviceDashboard = () => {
                   <InfoTooltip 
                     title="Unencrypted Devices" 
                     description="Devices without disk encryption enabled. Data on these devices is vulnerable if lost or stolen."
+                    source="Intune Encrypted field"
                   />
                 </p>
                 <p className="text-2xl font-bold text-orange-600">{analytics.unencryptedDevices}</p>
@@ -626,6 +647,7 @@ const DeviceDashboard = () => {
                   <InfoTooltip 
                     title="Unassigned Devices" 
                     description="Devices with no user assignment. These devices need to be assigned to users for proper accountability and management."
+                    source="Crowdstrike Last User, Intune Primary User, Freshdesk Used By"
                   />
                 </p>
                 <p className={`text-2xl font-bold ${textSecondary}`}>{analytics.unassignedDevices}</p>
@@ -640,6 +662,7 @@ const DeviceDashboard = () => {
                   <InfoTooltip 
                     title="Critical Alerts" 
                     description="Top 10 most critical security and compliance issues requiring immediate attention. Prioritized by severity and potential risk."
+                    source="Calculated from all platforms"
                   />
                 </h2>
                 <div className="space-y-2">
@@ -669,6 +692,7 @@ const DeviceDashboard = () => {
                 <InfoTooltip 
                   title="Department Statistics" 
                   description="Breakdown of device security and compliance metrics by department. Shows protection coverage, compliance rates, encryption status, and risk distribution across organizational units."
+                  source="Freshdesk Department field"
                 />
               </h2>
               <div className="overflow-x-auto">
@@ -727,6 +751,26 @@ const DeviceDashboard = () => {
                   </tbody>
                 </table>
               </div>
+              
+              <div className="flex items-center justify-center gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  className={`p-2 rounded ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-200 dark:hover:bg-gray-700'} ${textPrimary}`}
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <span className={`text-sm ${textSecondary}`}>
+                  Page {currentPage} of {totalPages} ({filteredDevices.length} devices)
+                </span>
+                <button
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                  className={`p-2 rounded ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-200 dark:hover:bg-gray-700'} ${textPrimary}`}
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -736,6 +780,7 @@ const DeviceDashboard = () => {
                   <InfoTooltip 
                     title="Platform Coverage" 
                     description="Number of devices registered in each management platform. Helps identify coverage gaps and integration status."
+                    source="All platforms"
                   />
                 </h2>
                 <ResponsiveContainer width="100%" height={300}>
@@ -761,6 +806,7 @@ const DeviceDashboard = () => {
                   <InfoTooltip 
                     title="Compliance Status" 
                     description="Overall compliance rate across all managed devices. Compliant devices meet all organizational security and configuration policies."
+                    source="Azure AD & Intune compliance"
                   />
                 </h2>
                 <ResponsiveContainer width="100%" height={300}>
@@ -799,6 +845,7 @@ const DeviceDashboard = () => {
                   <InfoTooltip 
                     title="OS Distribution" 
                     description="Breakdown of devices by operating system type and version. Useful for update planning and compatibility management."
+                    source="Crowdstrike Platform, Azure OS"
                   />
                 </h2>
                 <ResponsiveContainer width="100%" height={300}>
@@ -807,9 +854,9 @@ const DeviceDashboard = () => {
                       data={analytics.osData}
                       cx="50%"
                       cy="50%"
-                      labelLine={false}
-                      label={entry => `${entry.name}: ${entry.value}`}
-                      outerRadius={100}
+                      labelLine={true}
+                      label={(entry) => `${entry.name}`}
+                      outerRadius={80}
                       fill="#8884d8"
                       dataKey="value"
                     >
@@ -824,6 +871,7 @@ const DeviceDashboard = () => {
                         color: darkMode ? '#f3f4f6' : '#111827'
                       }}
                     />
+                    <Legend />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -834,6 +882,7 @@ const DeviceDashboard = () => {
                   <InfoTooltip 
                     title="Top Manufacturers" 
                     description="Most common device manufacturers in your environment. Helps with procurement decisions and vendor management."
+                    source="Crowdstrike, Intune, Freshdesk Manufacturer fields"
                   />
                 </h2>
                 <ResponsiveContainer width="100%" height={300}>
@@ -855,34 +904,73 @@ const DeviceDashboard = () => {
             </div>
 
             <div className={`${cardBg} rounded-lg shadow-md p-6 mb-6`}>
-              <div className="flex justify-between items-center mb-4">
+              <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
                 <h2 className={`text-xl font-semibold flex items-center gap-2 ${textPrimary}`}>
                   Device Details
                   <InfoTooltip 
                     title="Device Details" 
-                    description="Complete list of all devices with key information. Use pagination to browse through all devices. Source indicators show which platforms each device is registered in."
+                    description="Complete list of all devices with key information. Use search and pagination to browse. Source indicators show which platforms each device is registered in."
+                    source="All platforms combined"
                   />
+                  <button
+                    onClick={() => setShowColumnInfo(!showColumnInfo)}
+                    className={`ml-2 p-1 rounded ${textSecondary} hover:text-blue-500`}
+                    title="Toggle column info"
+                  >
+                    {showColumnInfo ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </h2>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                    disabled={currentPage === 1}
-                    className={`p-2 rounded ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-200 dark:hover:bg-gray-700'} ${textPrimary}`}
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                  </button>
-                  <span className={`text-sm ${textSecondary}`}>
-                    Page {currentPage} of {totalPages} ({analytics.devices.length} devices)
-                  </span>
-                  <button
-                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                    disabled={currentPage === totalPages}
-                    className={`p-2 rounded ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-200 dark:hover:bg-gray-700'} ${textPrimary}`}
-                  >
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 ${textSecondary}`} />
+                    <input
+                      type="text"
+                      placeholder="Search devices..."
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className={`pl-10 pr-4 py-2 rounded-lg border ${borderColor} ${cardBg} ${textPrimary} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      disabled={currentPage === 1}
+                      className={`p-2 rounded ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-200 dark:hover:bg-gray-700'} ${textPrimary}`}
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <span className={`text-sm ${textSecondary}`}>
+                      Page {currentPage} of {totalPages} ({filteredDevices.length} devices)
+                    </span>
+                    <button
+                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      disabled={currentPage === totalPages}
+                      className={`p-2 rounded ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-200 dark:hover:bg-gray-700'} ${textPrimary}`}
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
               </div>
+
+              {showColumnInfo && (
+                <div className={`mb-4 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 ${textPrimary}`}>
+                  <p className="text-sm font-semibold mb-2">Column Information:</p>
+                  <ul className="text-xs space-y-1">
+                    <li><strong>Hostname:</strong> Device name (from all platforms)</li>
+                    <li><strong>User:</strong> Assigned user (Crowdstrike, Intune, Freshdesk)</li>
+                    <li><strong>Department:</strong> Department assignment (Freshdesk)</li>
+                    <li><strong>Sources:</strong> Blue=Crowdstrike, Green=Azure, Purple=Intune, Orange=Freshdesk</li>
+                    <li><strong>Last Seen:</strong> Most recent activity (Crowdstrike, Azure, Intune)</li>
+                    <li><strong>Risk:</strong> Calculated score (0-100) based on security factors</li>
+                    <li><strong>Status:</strong> Current device state summary</li>
+                  </ul>
+                </div>
+              )}
+
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -890,13 +978,7 @@ const DeviceDashboard = () => {
                       <th className={`text-left py-3 px-4 font-semibold ${textPrimary}`}>Hostname</th>
                       <th className={`text-left py-3 px-4 font-semibold ${textPrimary}`}>User</th>
                       <th className={`text-left py-3 px-4 font-semibold ${textPrimary}`}>Department</th>
-                      <th className={`text-center py-3 px-4 font-semibold ${textPrimary}`}>
-                        Sources
-                        <InfoTooltip 
-                          title="Data Sources" 
-                          description="Colored dots indicate which platforms the device is registered in: Blue = Crowdstrike, Green = Azure AD, Purple = Intune, Orange = Freshdesk. Multiple dots mean the device appears in multiple systems."
-                        />
-                      </th>
+                      <th className={`text-center py-3 px-4 font-semibold ${textPrimary}`}>Sources</th>
                       <th className={`text-center py-3 px-4 font-semibold ${textPrimary}`}>Last Seen</th>
                       <th className={`text-center py-3 px-4 font-semibold ${textPrimary}`}>Risk</th>
                       <th className={`text-center py-3 px-4 font-semibold ${textPrimary}`}>Status</th>
@@ -913,12 +995,12 @@ const DeviceDashboard = () => {
                           <td className={`py-3 px-4 font-medium ${textPrimary}`}>{device.hostname}</td>
                           <td className={`py-3 px-4 ${textSecondary}`}>{device.user || 'Unassigned'}</td>
                           <td className={`py-3 px-4 ${textSecondary}`}>{device.department || 'N/A'}</td>
-                          <td className="text-center py-3 px-4">
+                          <td className="text-center py-3 px-4 relative">
                             <div className="flex justify-center gap-1">
                               {device.sources.includes('crowdstrike') && (
                                 <div className="group relative">
                                   <span className="inline-block w-3 h-3 rounded-full bg-blue-500 cursor-help"></span>
-                                  <span className={`invisible group-hover:visible absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs ${cardBg} ${textPrimary} rounded shadow-lg whitespace-nowrap z-10`}>
+                                  <span className={`invisible group-hover:visible absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 text-xs ${cardBg} ${textPrimary} rounded shadow-lg whitespace-nowrap z-10 border ${borderColor}`}>
                                     Crowdstrike
                                   </span>
                                 </div>
@@ -926,7 +1008,7 @@ const DeviceDashboard = () => {
                               {device.sources.includes('azure') && (
                                 <div className="group relative">
                                   <span className="inline-block w-3 h-3 rounded-full bg-green-500 cursor-help"></span>
-                                  <span className={`invisible group-hover:visible absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs ${cardBg} ${textPrimary} rounded shadow-lg whitespace-nowrap z-10`}>
+                                  <span className={`invisible group-hover:visible absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 text-xs ${cardBg} ${textPrimary} rounded shadow-lg whitespace-nowrap z-10 border ${borderColor}`}>
                                     Azure AD
                                   </span>
                                 </div>
@@ -934,7 +1016,7 @@ const DeviceDashboard = () => {
                               {device.sources.includes('intune') && (
                                 <div className="group relative">
                                   <span className="inline-block w-3 h-3 rounded-full bg-purple-500 cursor-help"></span>
-                                  <span className={`invisible group-hover:visible absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs ${cardBg} ${textPrimary} rounded shadow-lg whitespace-nowrap z-10`}>
+                                  <span className={`invisible group-hover:visible absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 text-xs ${cardBg} ${textPrimary} rounded shadow-lg whitespace-nowrap z-10 border ${borderColor}`}>
                                     Intune
                                   </span>
                                 </div>
@@ -942,7 +1024,7 @@ const DeviceDashboard = () => {
                               {device.sources.includes('freshdesk') && (
                                 <div className="group relative">
                                   <span className="inline-block w-3 h-3 rounded-full bg-orange-500 cursor-help"></span>
-                                  <span className={`invisible group-hover:visible absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs ${cardBg} ${textPrimary} rounded shadow-lg whitespace-nowrap z-10`}>
+                                  <span className={`invisible group-hover:visible absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 text-xs ${cardBg} ${textPrimary} rounded shadow-lg whitespace-nowrap z-10 border ${borderColor}`}>
                                     Freshdesk
                                   </span>
                                 </div>

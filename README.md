@@ -1,12 +1,12 @@
 # IT Asset Management Dashboard
 
-A comprehensive React-based dashboard for unified device security, compliance, and asset management across multiple platforms (Crowdstrike, Azure AD, Intune, and Freshdesk).
+A comprehensive React-based dashboard for unified device security, compliance, and asset management across multiple platforms (Crowdstrike, Azure AD, Intune, Freshdesk, and Active Directory).
 
 ---
 
 ## 🎯 What This Dashboard Does
 
-This dashboard provides a **unified view** of all your organization's devices by combining data from four different management platforms. It automatically:
+This dashboard provides a **unified view** of all your organization's devices by combining data from five different management platforms. It automatically:
 
 - **Matches devices** across platforms using hostname, serial number, and other identifiers
 - **Calculates risk scores** based on security posture (missing AV, non-compliance, encryption, etc.)
@@ -17,7 +17,7 @@ This dashboard provides a **unified view** of all your organization's devices by
 
 ### Key Features
 
-✅ **Multi-platform integration** - Crowdstrike, Azure AD, Intune, Freshdesk  
+✅ **Multi-platform integration** - Crowdstrike, Azure AD, Intune, Freshdesk, Active Directory  
 ✅ **Risk scoring** - Automated calculation based on security factors  
 ✅ **Department statistics** - Protection and compliance rates by department  
 ✅ **Device search** - Find devices by hostname, user, or department  
@@ -120,7 +120,7 @@ For quick testing without a full React setup:
 
 ## 📊 Required CSV Files and Column Headers
 
-The dashboard requires **four CSV files** with specific column headers. Upload them weekly to keep data current.
+The dashboard requires **five CSV files** with specific column headers. Upload them weekly to keep data current.
 
 ### 1. **Crowdstrike CSV** 
 **Filename pattern:** `*_hosts_*.csv`
@@ -213,6 +213,71 @@ The dashboard requires **four CSV files** with specific column headers. Upload t
 
 ---
 
+### 5. **Active Directory CSV** 🆕
+**Filename pattern:** `AD_Computers_*.csv`
+
+#### Required Columns:
+- `Name` - Computer name ⚠️ **CRITICAL - Primary matching field**
+- `Enabled` - Account enabled status (True/False)
+- `OperatingSystem` - OS name
+- `OperatingSystemVersion` - OS version
+- `lastLogonTimestamp` - Last logon time
+- `DistinguishedName` - Full AD path
+- `DNSHostName` - DNS hostname
+- `Description` - Computer description
+- `WhenCreated` - Creation date
+- `WhenChanged` - Last modification date
+- `ObjectGUID` - Unique AD identifier
+- `SID` - Security identifier
+
+#### Optional but Recommended:
+- OperatingSystemServicePack, SamAccountName, UserPrincipalName
+
+#### PowerShell Export Script:
+
+Use this script to export Active Directory computer data:
+
+```powershell
+# Import the Active Directory module
+Import-Module ActiveDirectory
+
+# Set export file path to user's Desktop
+$exportPath = "$env:USERPROFILE\Desktop\AD_Computers_With_Logon.csv"
+
+# Get all computer accounts and include relevant AD attributes
+$computers = Get-ADComputer -Filter * -Properties `
+    Name,
+    lastLogon,
+    lastLogonTimestamp,
+    OperatingSystem,
+    OperatingSystemVersion,
+    OperatingSystemServicePack,
+    Enabled,
+    DistinguishedName,
+    DNSHostName,
+    Description,
+    WhenCreated,
+    WhenChanged,
+    ObjectGUID,
+    SID
+
+# Export the results to CSV
+$computers | Export-Csv -Path $exportPath -NoTypeInformation -Encoding UTF8
+
+# Notify the user
+Write-Host "✔ Export completed successfully!"
+Write-Host "📄 File saved to: $exportPath" -ForegroundColor Green
+```
+
+**To run this script:**
+1. Open PowerShell as Administrator
+2. Copy and paste the script
+3. Press Enter to execute
+4. Find the exported CSV on your Desktop
+5. Upload to the dashboard
+
+---
+
 ## 📈 Dashboard Metrics Explained
 
 ### Summary Cards
@@ -223,8 +288,8 @@ The dashboard requires **four CSV files** with specific column headers. Upload t
 | **Unprotected** | Devices without Crowdstrike | Azure/Intune devices missing from Crowdstrike |
 | **Non-Compliant** | Devices failing compliance checks | Azure AD `isCompliant`, Intune `Compliance` |
 | **High Risk** | Devices with risk score ≥50 | Calculated from all factors |
-| **Stale 30+ days** | Not seen in 30+ days | Last Seen/Last Check-in/Last Sign-in |
-| **Stale 90+ days** | Not seen in 90+ days | Last Seen/Last Check-in/Last Sign-in |
+| **Stale 30+ days** | Not seen in 30+ days | Last Seen/Last Check-in/Last Sign-in/Last Logon |
+| **Stale 90+ days** | Not seen in 90+ days | Last Seen/Last Check-in/Last Sign-in/Last Logon |
 | **Unencrypted** | Devices without disk encryption | Intune `Encrypted` field |
 | **Unassigned** | Devices with no user | User fields across all platforms |
 
@@ -262,6 +327,7 @@ Colored dots in the device table show platform presence:
 - 🟢 **Green** - Azure AD
 - 🟣 **Purple** - Intune
 - 🟠 **Orange** - Freshdesk
+- 🔷 **Teal** - Active Directory
 
 Multiple dots = device exists in multiple systems
 
@@ -270,10 +336,10 @@ Multiple dots = device exists in multiple systems
 ## 🔍 Using the Dashboard
 
 ### Upload CSV Files
-1. Click each upload box
+1. Click each upload box (5 total)
 2. Select corresponding CSV file
 3. Wait for "✓" confirmation
-4. Repeat for all four files
+4. Repeat for all five files
 
 ### Search Devices
 - Use search bar to filter by hostname, user, or department
@@ -302,12 +368,13 @@ Multiple dots = device exists in multiple systems
 ## 🔧 Troubleshooting
 
 ### "No data showing"
-- Ensure all 4 CSV files are uploaded
+- Ensure all 5 CSV files are uploaded
 - Check that CSV headers match expected column names exactly
 - Verify CSV files contain data rows
 
 ### "Device counts seem wrong"
 - Dashboard matches devices by hostname (case-insensitive)
+- Active Directory uses the `Name` column (not DNSHostName)
 - Devices with different hostnames across platforms won't match
 - Check for hostname inconsistencies in source systems
 
@@ -321,10 +388,11 @@ Multiple dots = device exists in multiple systems
 - Ensure Freshdesk CSV has `Department` column populated
 - Devices not in Freshdesk will show as "Unassigned"
 
-### "Page buttons not appearing"
-- Buttons only show when data is loaded
-- If <50 total devices, single page (no buttons needed)
-- Check browser console for JavaScript errors
+### "Active Directory devices not showing"
+- Verify the CSV has a `Name` column (required)
+- Check that computer names match hostnames in other systems
+- AD data shows as teal dots in the Sources column
+- Review Platform Coverage chart to see AD device count
 
 ### "Logo not loading"
 - Fallback text "VOA" will display if logo fails
@@ -337,6 +405,7 @@ Multiple dots = device exists in multiple systems
 
 - **Weekly uploads** - Keep device data current
 - **After major changes** - Re-upload after mass enrollments/decommissions
+- **Monthly AD exports** - Active Directory data should be refreshed monthly
 - **Quarterly reviews** - Audit high-risk and stale devices
 - **Department reviews** - Share stats with department managers monthly
 
@@ -349,19 +418,39 @@ Multiple dots = device exists in multiple systems
 - **No data transmitted** - CSV files stay local
 - **Session-only** - Data clears on page refresh
 - **Safe to use** - No external data collection
+- **PowerShell script is read-only** - Only exports data, makes no changes to AD
 
 ---
 
 ## 💡 Tips for Best Results
 
 1. **Standardize hostnames** across all platforms for accurate matching
-2. **Keep serial numbers updated** in all systems for better correlation
-3. **Populate Freshdesk Department field** for meaningful department stats
-4. **Export CSVs on same day** for consistent timestamps
-5. **Use consistent naming conventions** for users and departments
-6. **Review high-risk devices first** - prioritize remediation efforts
-7. **Track trends over time** - compare weekly exports to identify patterns
-8. **Share department stats** - engage department managers in security
+2. **Use the Name field in Active Directory** - This is what the dashboard matches on
+3. **Keep serial numbers updated** in all systems for better correlation
+4. **Populate Freshdesk Department field** for meaningful department stats
+5. **Export CSVs on same day** for consistent timestamps
+6. **Use consistent naming conventions** for users and departments
+7. **Review high-risk devices first** - prioritize remediation efforts
+8. **Track trends over time** - compare weekly exports to identify patterns
+9. **Share department stats** - engage department managers in security
+10. **Run AD export monthly** - Keep Active Directory data current
+
+---
+
+## 🆕 What's New in Version 1.1
+
+### Active Directory Integration
+- ✅ Added fifth data source: Active Directory
+- ✅ Matches devices using computer `Name` field
+- ✅ Captures last logon timestamps for stale device detection
+- ✅ Shows AD presence with teal colored indicator
+- ✅ Includes PowerShell export script for easy data collection
+- ✅ Integrates AD Operating System data into charts
+
+### UI Improvements
+- ✅ Platform Coverage chart now shows 5 platforms
+- ✅ Updated tooltips to include AD data sources
+- ✅ Enhanced device matching across all 5 systems
 
 ---
 
@@ -370,8 +459,9 @@ Multiple dots = device exists in multiple systems
 For issues or questions about this dashboard:
 1. Review this README thoroughly
 2. Check CSV file column headers match requirements
-3. Verify all four files are uploaded
+3. Verify all five files are uploaded
 4. Check browser console for error messages
+5. For Active Directory issues, verify PowerShell script ran successfully
 
 ---
 
@@ -381,6 +471,7 @@ This dashboard is provided as-is for internal organizational use.
 
 ---
 
-**Version:** 1.0  
+**Version:** 1.1  
 **Last Updated:** October 2025  
-**Developed for:** Volunteers of America
+**Developed for:** Volunteers of America  
+**New in v1.1:** Active Directory Integration

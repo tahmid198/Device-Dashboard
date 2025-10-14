@@ -14,21 +14,24 @@ const DeviceDashboard = () => {
     crowdstrike: null,
     freshdesk: null,
     azure: null,
-    intune: null
+    intune: null,
+    activedirectory: null
   });
   
   const [lastUpdated, setLastUpdated] = useState({
     crowdstrike: null,
     freshdesk: null,
     azure: null,
-    intune: null
+    intune: null,
+    activedirectory: null
   });
 
   const [data, setData] = useState({
     crowdstrike: [],
     freshdesk: [],
     azure: [],
-    intune: []
+    intune: [],
+    activedirectory: []
   });
 
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
@@ -72,7 +75,7 @@ const DeviceDashboard = () => {
   };
 
   const analytics = useMemo(() => {
-    if (!data.crowdstrike.length && !data.azure.length && !data.intune.length && !data.freshdesk.length) {
+    if (!data.crowdstrike.length && !data.azure.length && !data.intune.length && !data.freshdesk.length && !data.activedirectory.length) {
       return null;
     }
 
@@ -239,6 +242,49 @@ const DeviceDashboard = () => {
       }
     });
 
+    // Process Active Directory data
+    data.activedirectory.forEach(device => {
+      const hostname = normalizeHostname(device['Name']);
+      if (!hostname) return;
+      
+      if (!deviceMap.has(hostname)) {
+        deviceMap.set(hostname, {
+          hostname,
+          sources: [],
+          serialNumber: null,
+          manufacturer: null,
+          model: null,
+          lastSeen: null,
+          user: null,
+          department: null,
+          location: null
+        });
+      }
+      
+      const dev = deviceMap.get(hostname);
+      if (!dev.sources.includes('activedirectory')) {
+        dev.sources.push('activedirectory');
+      }
+      dev.activedirectory = {
+        description: device['Description'],
+        distinguishedName: device['DistinguishedName'],
+        enabled: device['Enabled'],
+        lastLogon: parseDate(device['lastLogonTimestamp']),
+        objectGUID: device['ObjectGUID'],
+        operatingSystem: device['OperatingSystem'],
+        osServicePack: device['OperatingSystemServicePack'],
+        osVersion: device['OperatingSystemVersion'],
+        samAccountName: device['SamAccountName'],
+        sid: device['SID'],
+        userPrincipalName: device['UserPrincipalName'],
+        whenChanged: parseDate(device['WhenChanged']),
+        whenCreated: parseDate(device['WhenCreated'])
+      };
+      if (!dev.lastSeen && dev.activedirectory.lastLogon) {
+        dev.lastSeen = dev.activedirectory.lastLogon;
+      }
+    });
+
     const devices = Array.from(deviceMap.values());
     const now = new Date();
 
@@ -248,6 +294,7 @@ const DeviceDashboard = () => {
     const hasAzure = devices.filter(d => d.sources.includes('azure')).length;
     const hasIntune = devices.filter(d => d.sources.includes('intune')).length;
     const hasFreshdesk = devices.filter(d => d.sources.includes('freshdesk')).length;
+    const hasActiveDirectory = devices.filter(d => d.sources.includes('activedirectory')).length;
 
     const unprotectedDevices = devices.filter(d => 
       (d.sources.includes('azure') || d.sources.includes('intune')) && 
@@ -306,7 +353,8 @@ const DeviceDashboard = () => {
       { name: 'Crowdstrike', value: hasCrowdstrike },
       { name: 'Azure AD', value: hasAzure },
       { name: 'Intune', value: hasIntune },
-      { name: 'Freshdesk', value: hasFreshdesk }
+      { name: 'Freshdesk', value: hasFreshdesk },
+      { name: 'Active Directory', value: hasActiveDirectory }
     ];
 
     const osCount = {};
@@ -372,6 +420,7 @@ const DeviceDashboard = () => {
       hasAzure,
       hasIntune,
       hasFreshdesk,
+      hasActiveDirectory,
       unprotectedDevices: unprotectedDevices.length,
       nonCompliantDevices: nonCompliantDevices.length,
       detectionsDisabled: detectionsDisabled.length,
@@ -401,7 +450,7 @@ const DeviceDashboard = () => {
     return new Date(date).toLocaleString();
   };
 
-  const allFilesUploaded = files.crowdstrike && files.freshdesk && files.azure && files.intune;
+  const allFilesUploaded = files.crowdstrike && files.freshdesk && files.azure && files.intune && files.activedirectory;
 
   const filteredDevices = analytics ? analytics.devices.filter(device => 
     device.hostname.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -482,12 +531,12 @@ const DeviceDashboard = () => {
             Upload CSV Files
             <InfoTooltip 
               title="CSV File Upload" 
-              description="Upload all four CSV files from Crowdstrike, Freshdesk, Azure AD, and Intune to generate comprehensive device analytics and insights."
+              description="Upload all five CSV files from Crowdstrike, Freshdesk, Azure AD, Intune, and Active Directory to generate comprehensive device analytics and insights."
               source="User uploaded CSV files"
             />
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {['crowdstrike', 'freshdesk', 'azure', 'intune'].map(fileType => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            {['crowdstrike', 'freshdesk', 'azure', 'intune', 'activedirectory'].map(fileType => (
               <div key={fileType} className={`border-2 border-dashed ${borderColor} rounded-lg p-4 hover:border-blue-500 transition-colors`}>
                 <label className="cursor-pointer block">
                   <div className="flex flex-col items-center">
@@ -526,7 +575,7 @@ const DeviceDashboard = () => {
             <div className="flex">
               <AlertTriangle className="w-5 h-5 text-yellow-400 mr-3" />
               <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                Please upload all four CSV files to view the complete dashboard analytics.
+                Please upload all five CSV files to view the complete dashboard analytics.
               </p>
             </div>
           </div>
@@ -751,26 +800,6 @@ const DeviceDashboard = () => {
                   </tbody>
                 </table>
               </div>
-              
-              <div className="flex items-center justify-center gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <button
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1}
-                  className={`p-2 rounded ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-200 dark:hover:bg-gray-700'} ${textPrimary}`}
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-                <span className={`text-sm ${textSecondary}`}>
-                  Page {currentPage} of {totalPages} ({filteredDevices.length} devices)
-                </span>
-                <button
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                  disabled={currentPage === totalPages}
-                  className={`p-2 rounded ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-200 dark:hover:bg-gray-700'} ${textPrimary}`}
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -963,7 +992,7 @@ const DeviceDashboard = () => {
                     <li><strong>Hostname:</strong> Device name (from all platforms)</li>
                     <li><strong>User:</strong> Assigned user (Crowdstrike, Intune, Freshdesk)</li>
                     <li><strong>Department:</strong> Department assignment (Freshdesk)</li>
-                    <li><strong>Sources:</strong> Blue=Crowdstrike, Green=Azure, Purple=Intune, Orange=Freshdesk</li>
+                    <li><strong>Sources:</strong> Blue=Crowdstrike, Green=Azure, Purple=Intune, Orange=Freshdesk, Teal=Active Directory</li>
                     <li><strong>Last Seen:</strong> Most recent activity (Crowdstrike, Azure, Intune)</li>
                     <li><strong>Risk:</strong> Calculated score (0-100) based on security factors</li>
                     <li><strong>Status:</strong> Current device state summary</li>
@@ -1026,6 +1055,14 @@ const DeviceDashboard = () => {
                                   <span className="inline-block w-3 h-3 rounded-full bg-orange-500 cursor-help"></span>
                                   <span className={`invisible group-hover:visible absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 text-xs ${cardBg} ${textPrimary} rounded shadow-lg whitespace-nowrap z-10 border ${borderColor}`}>
                                     Freshdesk
+                                  </span>
+                                </div>
+                              )}
+                              {device.sources.includes('activedirectory') && (
+                                <div className="group relative">
+                                  <span className="inline-block w-3 h-3 rounded-full bg-teal-500 cursor-help"></span>
+                                  <span className={`invisible group-hover:visible absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 text-xs ${cardBg} ${textPrimary} rounded shadow-lg whitespace-nowrap z-10 border ${borderColor}`}>
+                                    Active Directory
                                   </span>
                                 </div>
                               )}

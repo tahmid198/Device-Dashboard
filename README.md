@@ -12,20 +12,24 @@ This dashboard provides a **unified view** of all your organization's devices by
 - **Calculates risk scores** based on security posture (missing AV, non-compliance, encryption, etc.)
 - **Identifies gaps** in protection, compliance, and asset tracking
 - **Provides department-level analytics** for security and compliance metrics
-- **Alerts on critical issues** like stale devices, disabled detections, and high-risk systems
+- **Tracks OS-specific metrics** with drill-downs for Windows, macOS, iOS, and Android
+- **Monitors disabled devices** across Azure AD and Active Directory
 - **Visualizes data** through interactive charts and filterable tables
 
 ### Key Features
 
 ✅ **Multi-platform integration** - Crowdstrike, Azure AD, Intune, Freshdesk, Active Directory  
 ✅ **Risk scoring** - Automated calculation based on security factors  
+✅ **OS drill-downs** - Separate metrics for Windows, macOS, iOS, and Android devices  
+✅ **Disabled device tracking** - Monitor devices disabled in Azure AD and Active Directory  
+✅ **45-day activity tracking** - Focus on recently active devices  
 ✅ **Department statistics** - Protection and compliance rates by department  
 ✅ **Device search** - Find devices by hostname, user, or department  
 ✅ **Dark mode** - Toggle between light and dark themes  
 ✅ **Interactive charts** - OS distribution, manufacturers, compliance status  
-✅ **Critical alerts** - Top 10 most urgent issues highlighted  
 ✅ **Pagination** - Browse through large device inventories  
 ✅ **Data source tooltips** - Know where each metric comes from  
+✅ **Column information panels** - Detailed explanations with toggle visibility  
 
 ---
 
@@ -170,7 +174,7 @@ The dashboard requires **five CSV files** with specific column headers. Upload t
 
 #### Required Columns:
 - `displayName` - Device name
-- `accountEnabled` - True/False
+- `accountEnabled` - True/False ⚠️ **CRITICAL for disabled device tracking**
 - `operatingSystem` - OS name
 - `operatingSystemVersion` - OS version
 - `joinType (trustType)` - Join method (Azure AD joined, Hybrid, Registered)
@@ -213,12 +217,12 @@ The dashboard requires **five CSV files** with specific column headers. Upload t
 
 ---
 
-### 5. **Active Directory CSV** 🆕
+### 5. **Active Directory CSV**
 **Filename pattern:** `AD_Computers_*.csv`
 
 #### Required Columns:
 - `Name` - Computer name ⚠️ **CRITICAL - Primary matching field**
-- `Enabled` - Account enabled status (True/False)
+- `Enabled` - Account enabled status (True/False) ⚠️ **CRITICAL for disabled device tracking**
 - `OperatingSystem` - OS name
 - `OperatingSystemVersion` - OS version
 - `lastLogonTimestamp` - Last logon time
@@ -288,10 +292,51 @@ Write-Host "📄 File saved to: $exportPath" -ForegroundColor Green
 | **Unprotected** | Devices without Crowdstrike | Azure/Intune devices missing from Crowdstrike |
 | **Non-Compliant** | Devices failing compliance checks | Azure AD `isCompliant`, Intune `Compliance` |
 | **High Risk** | Devices with risk score ≥50 | Calculated from all factors |
-| **Stale 30+ days** | Not seen in 30+ days | Last Seen/Last Check-in/Last Sign-in/Last Logon |
+| **Seen within 45 days** | Recently active devices | Last Seen/Last Check-in/Last Sign-in/Last Logon |
 | **Stale 90+ days** | Not seen in 90+ days | Last Seen/Last Check-in/Last Sign-in/Last Logon |
 | **Unencrypted** | Devices without disk encryption | Intune `Encrypted` field |
 | **Unassigned** | Devices with no user | User fields across all platforms |
+
+### OS-Specific Drill-Downs 🆕
+
+The dashboard provides detailed breakdowns for each major operating system:
+
+#### Windows Devices
+- **Total Windows systems** - All devices running Windows OS
+- **% of Total Devices** - Percentage of fleet that is Windows
+- **Active within 45 days** - Recently active Windows devices
+- **% Active** - What percentage of Windows devices are active
+
+#### macOS Devices
+- **Total macOS systems** - All Apple Mac computers
+- **% of Total Devices** - Percentage of fleet that is macOS
+- **Active within 45 days** - Recently active Macs
+- **% Active** - What percentage of Macs are active
+
+#### iOS Devices
+- **Total iOS devices** - All iPhones and iPads
+- **% of Total Devices** - Percentage of fleet that is iOS
+- **Active within 45 days** - Recently active iOS devices
+- **% Active** - What percentage of iOS devices are active
+
+#### Android Devices
+- **Total Android devices** - All Android phones and tablets
+- **% of Total Devices** - Percentage of fleet that is Android
+- **Active within 45 days** - Recently active Android devices
+- **% Active** - What percentage of Android devices are active
+
+### Disabled Devices Tracking 🆕
+
+Monitor devices that have been administratively disabled:
+
+| Metric | Description | Color |
+|--------|-------------|-------|
+| **Total Disabled** | All devices disabled in Azure AD or AD | Red |
+| **Active within 45 days** | Recently disabled devices (were active <45 days ago) | Green |
+| **Disabled in Azure AD** | Devices with `accountEnabled = false` | Orange |
+| **Disabled in Active Directory** | Devices with `Enabled = false` | Yellow |
+
+**Why this matters:** Disabled devices that were recently active may need to be removed from other systems (Crowdstrike, Intune) to avoid licensing costs and security gaps.
 
 ### Risk Score Calculation
 
@@ -310,15 +355,17 @@ Risk scores range from **0-100** with points added for:
 
 ### Department Statistics
 
-Shows per-department metrics:
+Shows per-department metrics with **toggleable column information**:
 - **Total** - Number of devices
 - **Protected** - Devices with Crowdstrike
-- **Protection %** - Percentage with AV
+- **Protection %** - Percentage with AV (color-coded)
 - **Compliant** - Devices meeting policies
-- **Compliance %** - Compliance rate
+- **Compliance %** - Compliance rate (color-coded)
 - **Encrypted** - Devices with encryption
 - **Stale** - Devices >30 days inactive
 - **High Risk** - Devices with risk ≥50
+
+**New:** Click the 👁️ icon to show/hide detailed column definitions.
 
 ### Source Indicators
 
@@ -341,6 +388,18 @@ Multiple dots = device exists in multiple systems
 3. Wait for "✓" confirmation
 4. Repeat for all five files
 
+### View OS-Specific Metrics 🆕
+- **OS Drill-Down Cards** show 4 cards: Windows, macOS, iOS, Android
+- Each card displays total devices and active devices within 45 days
+- Percentages help identify underutilized device types
+- Use this to plan refresh cycles and target inactive devices
+
+### Monitor Disabled Devices 🆕
+- **Disabled Devices Section** shows 4 metrics
+- Focus on "Active within 45 days" to find recently disabled devices
+- These devices may still exist in other systems
+- Review for potential license reclamation
+
 ### Search Devices
 - Use search bar to filter by hostname, user, or department
 - Search is case-insensitive and updates in real-time
@@ -350,12 +409,15 @@ Multiple dots = device exists in multiple systems
 - 50 devices per page
 - Page counter shows current position
 
-### Toggle Column Info
-- Click 👁️ icon to show/hide column explanations
-- Explains what each column represents and data sources
+### Toggle Column Info 🆕
+- Click 👁️ icon in **Department Statistics** or **Device Details**
+- Shows/hides detailed column explanations
+- Works in both light and dark mode
+- Explains data sources and color coding
 
 ### Switch Dark Mode
 - Click 🌙/☀️ button in top-right corner
+- All panels and tooltips adapt to dark mode
 - Preference persists during session
 
 ### View Tooltips
@@ -378,6 +440,23 @@ Multiple dots = device exists in multiple systems
 - Devices with different hostnames across platforms won't match
 - Check for hostname inconsistencies in source systems
 
+### "OS drill-downs showing 0 devices"
+- Verify OS fields are populated in CSVs (Platform, operatingSystem)
+- Check that OS names include keywords: "Windows", "Mac", "iOS", "Android"
+- iOS detection looks for "iOS", "iPhone", or "iPad"
+- Android detection looks for "Android"
+
+### "Disabled devices count is 0"
+- Check Azure AD CSV has `accountEnabled` column
+- Check Active Directory CSV has `Enabled` column
+- Values should be boolean (True/False) or strings ('True'/'False')
+- Dashboard checks for: false, 'false', 'False'
+
+### "Column info not visible in dark mode" ✅ FIXED
+- Toggle should now work properly in dark mode
+- Background adapts: blue-50 (light) or blue-900/30 (dark)
+- If still having issues, try refreshing the page
+
 ### "Risk scores seem high/low"
 - Risk calculation is automatic based on security factors
 - Review individual device details to see contributing factors
@@ -394,6 +473,11 @@ Multiple dots = device exists in multiple systems
 - AD data shows as teal dots in the Sources column
 - Review Platform Coverage chart to see AD device count
 
+### "Pie chart labels overlapping" ✅ FIXED
+- OS Distribution chart now uses legend instead of inline labels
+- Hover over segments to see details
+- Legend appears below the chart
+
 ### "Logo not loading"
 - Fallback text "VOA" will display if logo fails
 - Check internet connection (logo loads from external URL)
@@ -408,6 +492,7 @@ Multiple dots = device exists in multiple systems
 - **Monthly AD exports** - Active Directory data should be refreshed monthly
 - **Quarterly reviews** - Audit high-risk and stale devices
 - **Department reviews** - Share stats with department managers monthly
+- **Disabled device audits** - Review disabled devices monthly for cleanup opportunities
 
 ---
 
@@ -434,23 +519,31 @@ Multiple dots = device exists in multiple systems
 8. **Track trends over time** - compare weekly exports to identify patterns
 9. **Share department stats** - engage department managers in security
 10. **Run AD export monthly** - Keep Active Directory data current
+11. **Monitor disabled devices** - Clean up devices disabled in Azure/AD from other systems
+12. **Use OS drill-downs** - Target inactive devices by platform for refresh planning
+13. **Toggle column info** - Help new users understand metrics with the 👁️ button
 
 ---
 
-## 🆕 What's New in Version 1.1
+## 🆕 What's New in Version 2.0
 
-### Active Directory Integration
-- ✅ Added fifth data source: Active Directory
-- ✅ Matches devices using computer `Name` field
-- ✅ Captures last logon timestamps for stale device detection
-- ✅ Shows AD presence with teal colored indicator
-- ✅ Includes PowerShell export script for easy data collection
-- ✅ Integrates AD Operating System data into charts
+### Major Features
+- ✅ **OS-Specific Drill-Downs** - Separate tracking for Windows, macOS, iOS, and Android
+- ✅ **45-Day Activity Tracking** - Focus on recently active devices
+- ✅ **Disabled Device Monitoring** - Track disabled devices across Azure AD and Active Directory
+- ✅ **Column Information Panels** - Toggleable help for both Department Stats and Device Details
 
-### UI Improvements
-- ✅ Platform Coverage chart now shows 5 platforms
-- ✅ Updated tooltips to include AD data sources
-- ✅ Enhanced device matching across all 5 systems
+### UI/UX Improvements
+- ✅ Fixed pie chart label overlapping (now uses legend)
+- ✅ Fixed dark mode visibility for column information panels
+- ✅ Removed Critical Alerts section (cleaner, more focused view)
+- ✅ Enhanced OS detection to handle multiple OS field formats
+- ✅ Improved dark mode styling across all components
+
+### Bug Fixes
+- ✅ Fixed `toLowerCase` error for null/undefined OS values
+- ✅ Fixed disabled device detection to handle string and boolean values
+- ✅ Improved column info panel visibility in dark mode
 
 ---
 
@@ -462,6 +555,7 @@ For issues or questions about this dashboard:
 3. Verify all five files are uploaded
 4. Check browser console for error messages
 5. For Active Directory issues, verify PowerShell script ran successfully
+6. For disabled device issues, check `accountEnabled` and `Enabled` columns
 
 ---
 
@@ -471,7 +565,7 @@ This dashboard is provided as-is for internal organizational use.
 
 ---
 
-**Version:** 1.1  
+**Version:** 2.0  
 **Last Updated:** October 2025  
 **Developed for:** Volunteers of America  
-**New in v1.1:** Active Directory Integration
+**New in v2.0:** OS Drill-Downs, 45-Day Tracking, Disabled Device Monitoring, Column Info Panels
